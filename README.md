@@ -1,0 +1,7 @@
+- 👋 Hi, I’m @Daymo1565
+- 👀 I’m interested in Games,Music,Anime
+- 🌱 I’m currently learning C#
+- 💞️ I’m looking to collaborate on: SpaceUp
+- 📫 How to reach me: 
+- Email: daymo1565@bk.ru
+- Discord: Daymo1565#2556
