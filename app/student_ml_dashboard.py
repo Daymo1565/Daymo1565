@@ -9,6 +9,11 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from fpdf import FPDF
 import warnings
 import os
+import sys
+
+# Добавляем корневую директорию в путь для импортов
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 warnings.filterwarnings('ignore')
 
 # Настраиваем страницу
@@ -203,16 +208,33 @@ def set_language(lang):
 # ОСНОВНОЙ КОД
 # ===========================
 
-# Загружаем модель
+# Загружаем модель с правильными путями
 @st.cache_resource
 def load_ml_components():
     try:
-        model = joblib.load('best_student_model.pkl')
-        scaler = joblib.load('scaler.pkl')
-        feature_columns = joblib.load('feature_columns.pkl')
+        # Определяем базовый путь
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(base_dir, '..', 'models')
+        
+        model_path = os.path.join(models_dir, 'best_student_model.pkl')
+        scaler_path = os.path.join(models_dir, 'scaler.pkl')
+        features_path = os.path.join(models_dir, 'feature_columns.pkl')
+        
+        # Проверяем существование файлов
+        if not all(os.path.exists(path) for path in [model_path, scaler_path, features_path]):
+            st.error("❌ Файлы модели не найдены. Убедитесь, что файлы находятся в папке models/")
+            st.info("Необходимые файлы: best_student_model.pkl, scaler.pkl, feature_columns.pkl")
+            st.stop()
+        
+        model = joblib.load(model_path)
+        scaler = joblib.load(scaler_path)
+        feature_columns = joblib.load(features_path)
+        
+        #st.success("✅ Модель и компоненты успешно загружены!")
         return model, scaler, feature_columns
-    except FileNotFoundError:
-        st.error("❌ Файлы модели не найдены. Сначала запустите student_ml_system.py")
+        
+    except Exception as e:
+        st.error(f"❌ Ошибка загрузки модели: {e}")
         st.stop()
 
 # Класс для генерации PDF с улучшенной обработкой шрифтов
@@ -221,20 +243,26 @@ class PDFReport(FPDF):
         super().__init__()
         self.font_family = 'Arial'
         
-        # Пробуем загрузить шрифты DejaVu если они есть в текущей директории
+        # Пробуем загрузить шрифты DejaVu если они есть в папке resources
         try:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            resources_dir = os.path.join(base_dir, '..', 'resources')
+            
+            font_regular = os.path.join(resources_dir, 'DejaVuSansCondensed.ttf')
+            font_bold = os.path.join(resources_dir, 'DejaVuSansCondensed-Bold.ttf')
+            font_italic = os.path.join(resources_dir, 'DejaVuSansCondensed-Oblique.ttf')
+            
             # Проверяем существование файлов шрифтов
-            if (os.path.exists('DejaVuSansCondensed.ttf') and 
-                os.path.exists('DejaVuSansCondensed-Bold.ttf') and 
-                os.path.exists('DejaVuSansCondensed-Oblique.ttf')):
+            if (os.path.exists(font_regular) and 
+                os.path.exists(font_bold) and 
+                os.path.exists(font_italic)):
                 
-                self.add_font('DejaVu', '', 'DejaVuSansCondensed.ttf', uni=True)
-                self.add_font('DejaVu', 'B', 'DejaVuSansCondensed-Bold.ttf', uni=True)
-                self.add_font('DejaVu', 'I', 'DejaVuSansCondensed-Oblique.ttf', uni=True)
+                self.add_font('DejaVu', '', font_regular, uni=True)
+                self.add_font('DejaVu', 'B', font_bold, uni=True)
+                self.add_font('DejaVu', 'I', font_italic, uni=True)
                 self.font_family = 'DejaVu'
-                #st.success("✅ Шрифты DejaVu успешно загружены!")
             else:
-                st.warning("⚠️ Шрифты DejaVu не найдены. Используются стандартные шрифты Arial.")
+                st.warning("⚠️ Шрифты DejaVu не найдены в папке resources. Используются стандартные шрифты Arial.")
         except Exception as e:
             st.warning(f"⚠️ Ошибка загрузки шрифтов DejaVu: {e}. Используются стандартные шрифты Arial.")
     
@@ -420,6 +448,7 @@ def main():
     if 'recommendations' not in st.session_state:
         st.session_state.recommendations = []
     
+    # Загружаем модель и компоненты
     model, scaler, feature_columns = load_ml_components()
     lang = st.session_state.language
     t = translations[lang]
@@ -445,6 +474,13 @@ def main():
             border-radius: 10px;
             border-left: 5px solid #28a745;
             margin: 2rem 0;
+        }
+        .success-box {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -632,6 +668,8 @@ def main():
                         key="pdf_download"
                     )
                     
+                    st.success("✅ PDF report generated successfully!")
+                    
                 except Exception as e:
                     st.error(f"Error generating PDF: {e}")
             
@@ -654,6 +692,8 @@ def main():
                     mime="text/csv",
                     key="csv_download"
                 )
+                
+                st.success("✅ CSV data exported successfully!")
             
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -766,6 +806,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-    # 235 убрать комент если сломалось.
